@@ -11,7 +11,7 @@
 #define SERVER_ADDR L"127.0.0.1"
 #define BUFFER_SIZE 16
 
-#define DUMMY_CNT 1
+#define DUMMY_CNT 200
 #define MAX_WIDTH 80
 #define MAX_HEIGHT 23
 int MovePattern1[10] = { 1,1,0,1,1,2,2,2,2,-2 };
@@ -23,7 +23,8 @@ struct Session
 	int32_t ID;
 	int32_t x;
 	int32_t y;
-	bool enable;
+	bool bConnected;
+	bool bGetID;
 };
 
 std::vector <Session> g_VectorSession;
@@ -35,8 +36,9 @@ int32_t g_MyID;
 
 char g_Buffer[BUFFER_SIZE];
 
-Session g_DummySession[DUMMY_CNT];
 
+Session g_DummySession[DUMMY_CNT] = { 0, };
+void Disconnect(Session* session);
 void Update();
 void Network();
 void PacketProcess(Session* session);
@@ -56,8 +58,8 @@ int main()
 		ERROR_LOG(L"WsaStartUp() Error");
 	}
 
-	//wprintf(L"접속할 주소를 입력하시오:");
-	//wscanf_s(L"%s", addrBuffer, (unsigned)_countof(addrBuffer));
+	wprintf(L"접속할 주소를 입력하시오:");
+	wscanf_s(L"%s", addrBuffer, (unsigned)_countof(addrBuffer));
 
 	for (size_t i = 0; i < DUMMY_CNT; i++)
 	{
@@ -72,8 +74,8 @@ int main()
 
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
-	InetPton(AF_INET, SERVER_ADDR, &serverAddr.sin_addr.S_un.S_addr);
-	//InetPton(AF_INET, addrBuffer, &serverAddr.sin_addr.S_un.S_addr);
+	//InetPton(AF_INET, SERVER_ADDR, &serverAddr.sin_addr.S_un.S_addr);
+	InetPton(AF_INET, addrBuffer, &serverAddr.sin_addr.S_un.S_addr);
 
 	for (size_t i = 0; i < DUMMY_CNT; i++)
 	{
@@ -84,7 +86,7 @@ int main()
 		else
 		{ 
 			wprintf(L"connect 성공\n");
-			g_DummySession[i].enable = true;
+			g_DummySession[i].bConnected = true;
 		}
 	}
 
@@ -104,10 +106,24 @@ int main()
 
 }
 
+void Disconnect(Session* session)
+{
+	session->bConnected = false;
+	session->bGetID = false;
+	session->ID = 0;
+	closesocket(session->socket);
+	session->x = 0;
+	session->y = 0;
+}
+
 void Update()
 {
 	for (size_t i = 0; i < DUMMY_CNT; i++)
 	{
+		if (g_DummySession[i].bConnected == false || g_DummySession[i].bGetID== false)
+		{
+			continue;
+		}
 		int num = rand() % 4; 
 		switch (num)
 		{
@@ -142,7 +158,7 @@ void Network()
 
 	for (size_t i = 0; i < DUMMY_CNT; i++)
 	{
-		if (g_DummySession[i].enable)
+		if (g_DummySession[i].bConnected)
 		{
 			FD_SET(g_DummySession[i].socket, &readSet);
 			FD_SET(g_DummySession[i].socket, &exceptSet);
@@ -163,7 +179,7 @@ void Network()
 		}
 		for (size_t i = 0; i < DUMMY_CNT; i++)
 		{
-			if (g_DummySession[i].enable == false)
+			if (g_DummySession[i].bConnected == false)
 			{
 				continue;
 			}
@@ -178,6 +194,7 @@ void Network()
 				if (recvCnt <= 0)
 				{
 					ERROR_LOG(L"recv Error");
+					Disconnect(&g_DummySession[i]);
 				}
 				else
 				{
@@ -215,8 +232,9 @@ void PacketProcess(Session* session)
 			{
 				break;
 			}
+			session->bGetID = true;
 			session->x = *x;
-			session->y = *x;
+			session->y = *y;
 			break;
 
 		}
@@ -258,20 +276,15 @@ void PacketProcess(Session* session)
 
 void SendToPosition(Session* session)
 {
-	if (session->enable)
+	int packet[4];
+	packet[0] = 3;
+	packet[1] = session->ID;
+	packet[2] = session->x;
+	packet[3] = session->y;
+	int sendRtn = send(session->socket, (char*)packet, sizeof(packet), 0);
+	if (sendRtn < 0)
 	{
-		int packet[4];
-		packet[0] = 3;
-		packet[1] = session->ID;
-		packet[2] = session->x;
-		packet[3] = session->y;
-		int sendRtn = send(session->socket, (char*)packet, sizeof(packet), 0);
-		if (sendRtn < 0)
-		{
-			ERROR_LOG(L"send Error");
-		}
-
+		ERROR_LOG(L"send Error");
 	}
-	
 }
 
