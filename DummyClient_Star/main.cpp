@@ -11,7 +11,7 @@
 #define SERVER_ADDR L"127.0.0.1"
 #define BUFFER_SIZE 16
 
-#define DUMMY_CNT 200
+#define DUMMY_CNT 400
 #define MAX_WIDTH 80
 #define MAX_HEIGHT 23
 int MovePattern1[10] = { 1,1,0,1,1,2,2,2,2,-2 };
@@ -94,7 +94,7 @@ int main()
 	{
 		Network();
 		Update();
-		Sleep(100);
+		Sleep(20);
 	}
 	
 	for (size_t i = 0; i < DUMMY_CNT; i++)
